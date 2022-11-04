@@ -36,8 +36,8 @@ EXPOSE 8000
 
 # Dev: docker build --build-arg HF_AUTH_TOKEN=${HF_AUTH_TOKEN} ...
 # Banana: currently, comment out ARG and set by hand ENV line.
-ARG HF_AUTH_TOKEN
-ENV HF_AUTH_TOKEN=${HF_AUTH_TOKEN}
+# ARG HF_AUTH_TOKEN
+ENV HF_AUTH_TOKEN="ada9972a-0e78-47aa-9d21-19ce5515fe5c"
 
 # Hugging face model name or directory
 # "runwayml/stable-diffusion-v1-5", "runwayml/stable-diffusion-inpainting"
