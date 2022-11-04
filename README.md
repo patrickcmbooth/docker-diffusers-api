@@ -24,26 +24,32 @@ assumptions.  If anything is unclear, please open an issue.
 
 1. Clone or fork this repo.
 
-1. **Variables**:
+1. Most of the configuration happens via docker build variables.  You can
+  see all the options in the [Dockerfile](./Dockerfile), and edit them
+  there directly, or set via docker command line or e.g. Banana's dashboard
+  UI once support for build variables land (any day now).
 
-    1. *EITHER*:
-        1. Set in `Dockerfile`.
-    2. *OR*:
-        1. Set `HF_AUTH_TOKEN` environment variable,
-        1. Edit `scripts/permutations.yaml`,
-        1. Run `scripts/permute.sh` to create a bunch of distinct forks.
-    3. *DEV MODE*:
-        1. Leave `MODEL_ID` as `ALL` and *all* models will be downloaded,
-           (as listed in [`loadModel.py`](./loadModel.py)) allowing you
-           to switch at request time (great for dev, useless for serverless).
+  If you're only deploying one container, that's all you need!  If you
+  intend to deploy multiple containers each with different variables
+  (e.g. a few different models), you can edit the example
+  [`scripts/permutations.yaml`](scripts/permutations.yaml)] file and
+  run [`scripts/permute.sh`](scripts/permute.sh)` to create a number
+  of sub-repos in the `permutations` directory.
+
+  Lastly, there's an option to set `MODEL_ID=ALL`, and *all* models will
+  be downloaded, and switched at request time (great for dev, useless for
+  serverless).
 
 1. **Building**
 
     1. Set `HF_AUTH_TOKEN` environment var if you haven't set it elsewhere.
     1. `docker build -t banana-sd --build-arg HF_AUTH_TOKEN=$HF_AUTH_TOKEN .`
-    1. Optionally add `DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain docker` to
+    1. Optionally add `DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain` to
        start of the line, depending on your preferences.  (Recommended if
        you're using the `root-cache` feature.)
+    1. Note: your first build can take a really long time, depending on
+       your PC & network speed, and *especially when using the `CHECKPOINT_URL`
+       feature*.  Great time to grab a coffee or take a walk.
 
 1. **Running**
 
@@ -55,8 +61,7 @@ assumptions.  If anything is unclear, please open an issue.
 
 ## Sending requests
 
-See [sd-mui source](https://github.com/gadicc/stable-diffusion-react-nextjs-mui-pwa)
-for more info, but basically, it's:
+The container expects an `HTTP POST` request with the following JSON body:
 
 ```json
 {
@@ -79,12 +84,42 @@ for more info, but basically, it's:
 
 If provided, `init_image` and `mask_image` should be base64 encoded.
 
-Sorry, but this format might change without notice based on the needs of SD-MUI.
-It's been stable for a while but we make no promises.  Your best bet is always to
-keep up-to-date with the SD-MUI source.
+If you're using banana's SDK, it looks something like this:
+
+```js
+const out = await banana.run(apiKey, modelKey, { modelInputs, callInputs });
+```
+
+NB: if you're coming from another banana starter repo, note that we
+explicitly name `modelInputs` above, and send a bigger object (with
+`modelInputs` and `callInputs` keys) for the banana-sdk's
+"modelInputs" argument.
 
 There are also very basic examples in [test.py](./test.py), which you can view
 and call `python test.py` if the container is already running on port 8000.
+
+The best example of course is https://kiri.art/ and it's
+[source code](https://github.com/kiri-art/stable-diffusion-react-nextjs-mui-pwa).
+
+## Troubleshooting
+
+* **403 Client Error: Forbidden for url**
+
+  Make sure you've accepted the license on the model card of the HuggingFace model
+  specified in `MODEL_ID`, and that you correctly passed `HF_AUTH_TOKEN` to the
+  container.
+
+## Adding other Models
+
+You have two options.
+
+1. For a diffusers model, simply set the `MODEL_ID` docker build variable to the name
+  of the model hosted on HuggingFace, and it will be downloaded automatically at
+  build time.
+
+1. For a non-diffusers model, simply set the `CHECKPOINT_URL` docker build variable
+  to the URL of a `.ckpt` file, which will be downloaded and converted to the diffusers
+  format automatically at build time.
 
 ## Keeping forks up to date
 
