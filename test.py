@@ -38,7 +38,10 @@ def test(name, inputs):
     response = requests.post("http://localhost:8000/", json=inputs)
     result = response.json()
 
-    if result.get("images_base64", None) == "None":
+    if (
+        result.get("images_base64", None) == None
+        and result.get("image_base64", None) == None
+    ):
         print(json.dumps(result, indent=4))
         print()
         return
@@ -58,7 +61,7 @@ test(
     {
         "modelInputs": {"prompt": "realistic field of grass"},
         "callInputs": {
-            "MODEL_ID": "CompVis/stable-diffusion-v1-4",
+            "MODEL_ID": "runwayml/stable-diffusion-v1-5",
             "PIPELINE": "StableDiffusionPipeline",
             "SCHEDULER": "LMS",
         },
@@ -74,7 +77,7 @@ test(
             "num_images_per_prompt": 2,
         },
         "callInputs": {
-            "MODEL_ID": "CompVis/stable-diffusion-v1-4",
+            "MODEL_ID": "runwayml/stable-diffusion-v1-5",
             "PIPELINE": "StableDiffusionPipeline",
             "SCHEDULER": "LMS",
         },
@@ -90,7 +93,7 @@ test(
             "init_image": b64encode_file("sketch-mountains-input.jpg"),
         },
         "callInputs": {
-            "MODEL_ID": "CompVis/stable-diffusion-v1-4",
+            "MODEL_ID": "runwayml/stable-diffusion-v1-5",
             "PIPELINE": "StableDiffusionImg2ImgPipeline",
             "SCHEDULER": "LMS",
         },
