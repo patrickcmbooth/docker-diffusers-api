@@ -5,11 +5,17 @@ import requests
 import base64
 import os
 import json
+import sys
+import time
+import argparse
+import distutils
+from uuid import uuid4
 from io import BytesIO
 from PIL import Image
 from pathlib import Path
 
-TESTS = "tests"
+path = os.path.dirname(os.path.realpath(sys.argv[0]))
+TESTS = path + os.sep + "tests"
 FIXTURES = TESTS + os.sep + "fixtures"
 OUTPUT = TESTS + os.sep + "output"
 Path(OUTPUT).mkdir(parents=True, exist_ok=True)
@@ -33,10 +39,61 @@ def decode_and_save(image_byte_string: str, name: str):
     print("Saved " + fp)
 
 
+all_tests = {}
+
+
 def test(name, inputs):
+    global all_tests
+    all_tests.update({name: inputs})
+
+
+def runTest(name, banana, extraCallInputs):
+    inputs = all_tests.get(name)
+    inputs.get("callInputs").update(extraCallInputs)
+
     print("Running test: " + name)
-    response = requests.post("http://localhost:8000/", json=inputs)
-    result = response.json()
+
+    start = time.time()
+    if banana:
+        BANANA_API_KEY = os.getenv("BANANA_API_KEY")
+        BANANA_MODEL_KEY = os.getenv("BANANA_MODEL_KEY")
+        if BANANA_MODEL_KEY == None or BANANA_API_KEY == None:
+            print("Error: BANANA_API_KEY or BANANA_MODEL_KEY not set, aborting...")
+            sys.exit(1)
+
+        payload = {
+            "id": str(uuid4()),
+            "created": int(time.time()),
+            "apiKey": BANANA_API_KEY,
+            "modelKey": BANANA_MODEL_KEY,
+            "modelInputs": inputs,
+            "startOnly": False,
+        }
+        response = requests.post("https://api.banana.dev/start/v4/", json=payload)
+
+        result = response.json()
+        modelOutputs = result.get("modelOutputs", None)
+        if modelOutputs == None:
+            finish = time.time() - start
+            print(f"Request took {finish:.1f}s")
+            print(result)
+            return
+        result = modelOutputs[0]
+    else:
+        response = requests.post("http://localhost:8000/", json=inputs)
+        result = response.json()
+
+    finish = time.time() - start
+    timings = result.get("$timings")
+    if timings:
+        init = timings.get("init") / 1000
+        inference = timings.get("inference") / 1000
+        print(
+            f"Request took {finish:.1f}s ("
+            + f"init: {init:.1f}s, inference: {inference:.1f}s)"
+        )
+    else:
+        print(f"Request took {finish:.1f}s")
 
     if (
         result.get("images_base64", None) == None
@@ -63,14 +120,15 @@ test(
         "callInputs": {
             "MODEL_ID": "runwayml/stable-diffusion-v1-5",
             "PIPELINE": "StableDiffusionPipeline",
-            "SCHEDULER": "LMS",
+            "SCHEDULER": "LMSDiscreteScheduler",
+            # "xformers_memory_efficient_attention": False,
         },
     },
 )
 
 # multiple images
 test(
-    "txt2img",
+    "txt2img-multiple",
     {
         "modelInputs": {
             "prompt": "realistic field of grass",
@@ -79,7 +137,7 @@ test(
         "callInputs": {
             "MODEL_ID": "runwayml/stable-diffusion-v1-5",
             "PIPELINE": "StableDiffusionPipeline",
-            "SCHEDULER": "LMS",
+            "SCHEDULER": "LMSDiscreteScheduler",
         },
     },
 )
@@ -95,7 +153,7 @@ test(
         "callInputs": {
             "MODEL_ID": "runwayml/stable-diffusion-v1-5",
             "PIPELINE": "StableDiffusionImg2ImgPipeline",
-            "SCHEDULER": "LMS",
+            "SCHEDULER": "LMSDiscreteScheduler",
         },
     },
 )
@@ -111,7 +169,7 @@ test(
         "callInputs": {
             "MODEL_ID": "CompVis/stable-diffusion-v1-4",
             "PIPELINE": "StableDiffusionInpaintPipelineLegacy",
-            "SCHEDULER": "DDIM",  # Note, as of diffusers 0.3.0, no LMS yet
+            "SCHEDULER": "DDIMScheduler",  # Note, as of diffusers 0.3.0, no LMS yet
         },
     },
 )
@@ -127,7 +185,7 @@ test(
         "callInputs": {
             "MODEL_ID": "runwayml/stable-diffusion-inpainting",
             "PIPELINE": "StableDiffusionInpaintPipeline",
-            "SCHEDULER": "DDIM",  # Note, as of diffusers 0.3.0, no LMS yet
+            "SCHEDULER": "DDIMScheduler",  # Note, as of diffusers 0.3.0, no LMS yet
         },
     },
 )
@@ -145,8 +203,54 @@ if os.getenv("USE_PATCHMATCH"):
             "callInputs": {
                 "MODEL_ID": "CompVis/stable-diffusion-v1-4",
                 "PIPELINE": "StableDiffusionInpaintPipelineLegacy",
-                "SCHEDULER": "DDIM",  # Note, as of diffusers 0.3.0, no LMS yet
+                "SCHEDULER": "DDIMScheduler",  # Note, as of diffusers 0.3.0, no LMS yet
                 "FILL_MODE": "patchmatch",
             },
         },
     )
+
+
+def main(tests_to_run, banana, extraCallInputs):
+    invalid_tests = []
+    for test in tests_to_run:
+        if all_tests.get(test, None) == None:
+            invalid_tests.append(test)
+
+    if len(invalid_tests) > 0:
+        print("No such tests: " + ", ".join(invalid_tests))
+        exit(1)
+
+    for test in tests_to_run:
+        runTest(test, banana, extraCallInputs)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--banana", required=False, action="store_true")
+    parser.add_argument(
+        "--xmfe",
+        required=False,
+        default=None,
+        type=lambda x: bool(distutils.util.strtobool(x)),
+    )
+    parser.add_argument("--scheduler", required=False, type=str)
+
+    args, tests_to_run = parser.parse_known_args()
+
+    extraCallInputs = {}
+    if args.xmfe != None:
+        extraCallInputs.update({"xformers_memory_efficient_attention": args.xmfe})
+    if args.scheduler:
+        extraCallInputs.update({"SCHEDULER": args.scheduler})
+
+    if len(tests_to_run) < 1:
+        print(
+            "Usage: python3 test.py [--banana] [--xmfe=1/0] [--scheduler=SomeScheduler] [all / test1] [test2] [etc]"
+        )
+        sys.exit()
+    elif len(tests_to_run) == 1 and (
+        tests_to_run[0] == "ALL" or tests_to_run[0] == "all"
+    ):
+        tests_to_run = list(all_tests.keys())
+
+    main(tests_to_run, banana=args.banana, extraCallInputs=extraCallInputs)
