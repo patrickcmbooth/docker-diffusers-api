@@ -16,11 +16,11 @@ ENV http_proxy=${http_proxy}
 ARG https_proxy
 ENV https_proxy=${https_proxy}
 RUN if [ -n "$http_proxy" ] ; then \
-  echo quit \
-  | openssl s_client -proxy $(echo ${https_proxy} | cut -b 8-) -servername google.com -connect google.com:443 -showcerts \
-  | sed 'H;1h;$!d;x; s/^.*\(-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----\)\n---\nServer certificate.*$/\1/' \
-  > /usr/local/share/ca-certificates/squid-self-signed.crt ; \
-  update-ca-certificates ; \
+    echo quit \
+    | openssl s_client -proxy $(echo ${https_proxy} | cut -b 8-) -servername google.com -connect google.com:443 -showcerts \
+    | sed 'H;1h;$!d;x; s/^.*\(-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----\)\n---\nServer certificate.*$/\1/' \
+    > /usr/local/share/ca-certificates/squid-self-signed.crt ; \
+    update-ca-certificates ; \
   fi
 ENV REQUESTS_CA_BUNDLE=${http_proxy:+/usr/local/share/ca-certificates/squid-self-signed.crt}
 
@@ -93,7 +93,7 @@ ENV HF_AUTH_TOKEN="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"
 # 4) "ALL" to download all known models (useful for dev)
 # "runwayml/stable-diffusion-v1-5", "runwayml/stable-diffusion-inpainting"
 # "CompVis/stable-diffusion-v1-4", "hakurei/waifu-diffusion", etc.
-ARG MODEL_ID="stabilityai/stable-diffusion-2"
+ARG MODEL_ID="runwayml/stable-diffusion-v1-5"
 ENV MODEL_ID=${MODEL_ID}
 
 # "" = model default.
@@ -151,9 +151,9 @@ RUN if [ "$USE_PATCHMATCH" = "1" ] ; then apt-get install -yqq python3-opencv ; 
 COPY --from=patchmatch /tmp/PyPatchMatch PyPatchMatch
 
 RUN if [ "$USE_DREAMBOOTH" = "1" ] ; then \
-  # By specifying the same torch version as conda, it won't download again.
-  # Without this, it will upgrade torch, break xformers, make bigger image.
-  pip install -r diffusers/examples/dreambooth/requirements.txt bitsandbytes torch==1.12.1 ; \
+    # By specifying the same torch version as conda, it won't download again.
+    # Without this, it will upgrade torch, break xformers, make bigger image.
+    pip install -r diffusers/examples/dreambooth/requirements.txt bitsandbytes torch==1.12.1 ; \
   fi
 RUN if [ "$USE_DREAMBOOTH" = "1" ] ; then apt-get install git-lfs ; fi
 
