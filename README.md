@@ -13,12 +13,18 @@ Please give credit and link back to this repo if you use it in a public project.
 * *Permute* base config to multiple forks based on yaml config with vars
 * Optionally send signed event logs / performance data to a REST endpoint
 * Can automatically download a checkpoint file and convert to diffusers.
+* S3 support, dreambooth training.
 
 Note: This image was created for [kiri.art](https://kiri.art/).
 Everything is open source but there may be certain request / response
 assumptions.  If anything is unclear, please open an issue.
 
 ## [Read the CHANGELOG for Important Updates.](./CHANGELOG.md)
+
+**Official help in our dedicated forum https://banana-forums.dev/c/open-source/docker-diffusers-api/16.**
+
+*[See the `dev` branch for the latest features.](https://github.com/kiri-art/docker-diffusers-api/tree/dev)
+**Pull Requests must be submitted against the dev branch.***
 
 ## Usage:
 
@@ -99,11 +105,14 @@ explicitly name `modelInputs` above, and send a bigger object (with
 
 If provided, `init_image` and `mask_image` should be base64 encoded.
 
-Available schedulers: `LMSDiscreteScheduler`, `DDIMScheduler`, `PNDMScheduler`,
-`EulerAncestralDiscreteScheduler`, `EulerDiscreteScheduler`.  These cover the
-most commonly used / requested schedulers, but we already have code in place to
-support every scheduler provided by diffusers, which will work in a later
-diffusers release when they have better defaults.
+**Schedulers**: docker-diffusers-api is simply a wrapper around diffusers,
+literally any scheduler included in diffusers will work out of the box,
+provided it can loaded with its default config and without requiring
+any other explicit arguments at init time.  In any event, the following
+schedulers are the most common and most well tested:
+`DPMSolverMultistepScheduler` (fast!  only needs 20 steps!),
+`LMSDiscreteScheduler`, `DDIMScheduler`, `PNDMScheduler`,
+`EulerAncestralDiscreteScheduler`, `EulerDiscreteScheduler`.
 
 <a name="testing"></a>
 ## Examples and testing

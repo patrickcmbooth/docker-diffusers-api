@@ -47,15 +47,16 @@ RUN pip3 install --upgrade pip
 ADD requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
-# Required to build flash attention
+# Not needed anymore, but, may be needed again in the future :D
 # Turing: 7.5 (RTX 20s, Quadro), Ampere: 8.0 (A100), 8.6 (RTX 30s)
 # https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
-# ENV FLASH_ATTENTION=0
 # ENV TORCH_CUDA_ARCH_LIST="7.5 8.0 8.6"
-# this is built it into memory efficient attention now ! ^_^
 
-ADD install.sh .
-RUN bash install.sh
+RUN git clone https://github.com/huggingface/diffusers
+WORKDIR /api/diffusers
+RUN git checkout v0.9.0
+WORKDIR /api
+RUN pip install -e diffusers
 
 # We add the banana boilerplate here
 ADD server.py .
@@ -72,8 +73,10 @@ ENV HF_AUTH_TOKEN="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"
 # 3) Your own unique model id if using CHECKPOINT_URL below.
 # 4) "ALL" to download all known models (useful for dev)
 # "runwayml/stable-diffusion-v1-5", "runwayml/stable-diffusion-inpainting"
-# "CompVis/stable-diffusion-v1-4", "hakurei/waifu-diffusion", etc.
-ARG MODEL_ID="runwayml/stable-diffusion-v1-5"
+# "CompVis/stable-diffusion-v1-4", "hakurei/waifu-diffusion",
+# "stabilityai/stable-diffusion-2",
+# "stabilityai/stable-diffusion-2-inpainting" etc.
+ARG MODEL_ID="stabilityai/stable-diffusion-2"
 ENV MODEL_ID=${MODEL_ID}
 
 # ARG PIPELINE="StableDiffusionInpaintPipeline"
@@ -109,6 +112,11 @@ COPY --from=patchmatch /tmp/PyPatchMatch PyPatchMatch
 # Add your custom app code, init() and inference()
 ADD send.py .
 ADD app.py .
+
+ARG SEND_URL
+ENV SEND_URL=${SEND_URL}
+ARG SIGN_KEY
+ENV SIGN_KEY=${SIGN_KEY}
 
 CMD python3 -u server.py
 

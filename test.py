@@ -72,6 +72,28 @@ def runTest(name, banana, extraCallInputs):
         response = requests.post("https://api.banana.dev/start/v4/", json=payload)
 
         result = response.json()
+        callID = result.get("callID")
+
+        if result.get("finished", None) == False:
+            while result.get(
+                "message", None
+            ) != "success" and not "error" in result.get("message", None):
+                secondsSinceStart = round((time.time() - start) / 1000)
+                print(str(datetime.datetime.now()) + f": t+{secondsSinceStart}s")
+                print(json.dumps(result, indent=4))
+                print
+                payload = {
+                    "id": str(uuid4()),
+                    "created": int(time.time()),
+                    "longPoll": True,
+                    "apiKey": BANANA_API_KEY,
+                    "callID": callID,
+                }
+                response = requests.post(
+                    "https://api.banana.dev/check/v4/", json=payload
+                )
+                result = response.json()
+
         modelOutputs = result.get("modelOutputs", None)
         if modelOutputs == None:
             finish = time.time() - start
@@ -209,6 +231,37 @@ if os.getenv("USE_PATCHMATCH"):
         },
     )
 
+# Actually we just want this to be a non-default test?
+if True or os.getenv("USE_DREAMBOOTH"):
+    test(
+        "dreambooth",
+        # If you're calling from the command line, don't forget to a
+        # specify a destination if you want your fine-tuned model to
+        # be uploaded somewhere at the end.
+        {
+            "modelInputs": {
+                "instance_prompt": "a photo of sks dog",
+                "instance_images": list(
+                    map(
+                        b64encode_file,
+                        list(Path("tests/fixtures/dreambooth").iterdir()),
+                    )
+                ),
+                # Option 1: upload to HuggingFace (see notes below)
+                # Make sure your HF API token has read/write access.
+                # "hub_model_id": "huggingFaceUsername/targetModelName",
+                # "push_to_hub": True,
+            },
+            "callInputs": {
+                "MODEL_ID": "runwayml/stable-diffusion-v1-5",
+                "PIPELINE": "StableDiffusionPipeline",
+                "SCHEDULER": "DDPMScheduler",
+                "train": "dreambooth",
+                # Option 2: store on S3.  Note the **s3:///* (x3).  See notes below.
+                # "dest_url": "s3:///bucket/filename.tar.zst".
+            },
+        },
+    )
 
 def main(tests_to_run, banana, extraCallInputs):
     invalid_tests = []
